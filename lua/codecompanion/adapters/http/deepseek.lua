@@ -243,10 +243,10 @@ return {
       type = "enum",
       desc = "ID of the model to use.",
       ---@type string|fun(): string
-      default = "deepseek-v4-flash",
+      default = "deepseek-flash",
       choices = {
-        ["deepseek-v4-flash"] = {
-          formatted_name = "DeepSeek V4 Flash",
+        ["deepseek-flash"] = {
+          formatted_name = "DeepSeek V4.1 Flash",
           meta = { context_window = 1048576 },
           opts = { can_reason = true, can_use_tools = true },
         },
@@ -255,13 +255,8 @@ return {
           meta = { context_window = 1048576 },
           opts = { can_reason = true, can_use_tools = true },
         },
-        ["deepseek-chat"] = {
-          formatted_name = "DeepSeek Chat (Deprecated)",
-          meta = { context_window = 1048576 },
-          opts = { can_use_tools = true },
-        },
-        ["deepseek-reasoner"] = {
-          formatted_name = "DeepSeek Reasoner (Deprecated)",
+        ["deepseek-v4-flash"] = {
+          formatted_name = "DeepSeek V4 Flash (Deprecated)",
           meta = { context_window = 1048576 },
           opts = { can_reason = true, can_use_tools = true },
         },
