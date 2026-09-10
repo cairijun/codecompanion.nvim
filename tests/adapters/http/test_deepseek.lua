@@ -1,4 +1,5 @@
 local h = require("tests.helpers")
+local tags = require("codecompanion.interactions.shared.tags")
 local adapter
 
 local new_set = MiniTest.new_set
@@ -12,6 +13,26 @@ T["DeepSeek adapter"] = new_set({
     end,
   },
 })
+
+T["DeepSeek adapter"]["enables vision when the selected model supports it"] = function()
+  local adapters = require("codecompanion.adapters")
+
+  adapter.schema.model.default = "deepseek-flash"
+  adapter.parameters = {}
+  adapters.call_handler(adapter, "setup")
+
+  h.eq(true, adapter.opts.vision)
+end
+
+T["DeepSeek adapter"]["does NOT enable vision when the selected model does not support it"] = function()
+  local adapters = require("codecompanion.adapters")
+
+  adapter.schema.model.default = "deepseek-v4-flash"
+  adapter.parameters = {}
+  adapters.call_handler(adapter, "setup")
+
+  h.eq(false, adapter.opts.vision)
+end
 
 T["DeepSeek adapter"]["build_messages"] = new_set()
 
@@ -186,6 +207,56 @@ T["DeepSeek adapter"]["build_messages"]["includes reasoning_content in messages"
 
   -- reasoning is normalized to a string by build_reasoning before message storage
   h.eq("Let me think about Ruby...", result.messages[2].reasoning_content)
+end
+
+T["DeepSeek adapter"]["build_messages"]["can form messages with images"] = function()
+  local messages = {
+    { role = "user", content = "How are you?" },
+    { role = "assistant", content = "I am fine, thanks. How can I help?" },
+    {
+      role = "user",
+      content = "somefakebase64encoding",
+      context = { id = "<image>https://example.com/image.jpg</image>", mimetype = "image/png" },
+      _meta = { tag = tags.IMAGE },
+      opts = { visible = false },
+    },
+    { role = "user", content = "What is this an image of?" },
+  }
+
+  local expected = {
+    messages = {
+      { role = "user", content = "How are you?" },
+      { role = "assistant", content = "I am fine, thanks. How can I help?" },
+      {
+        role = "user",
+        content = {
+          { type = "image_url", image_url = { url = "data:image/png;base64,somefakebase64encoding" } },
+          { type = "text", text = "What is this an image of?" },
+        },
+      },
+    },
+  }
+
+  h.eq(expected, adapter.handlers.request.build_messages(adapter, messages))
+end
+
+T["DeepSeek adapter"]["build_messages"]["strips image messages for models that do not support vision"] = function()
+  local no_vision_adapter = require("codecompanion.adapters").extend("deepseek", {
+    opts = { vision = false },
+  })
+
+  local messages = {
+    { role = "user", content = "Describe this image" },
+    { role = "user", content = "base64data", _meta = { tag = tags.IMAGE }, context = { mimetype = "image/png" } },
+  }
+
+  local result = no_vision_adapter.handlers.request.build_messages(no_vision_adapter, messages)
+
+  h.eq({
+    messages = {
+      { role = "user", content = "Describe this image" },
+    },
+  }, result)
 end
 
 T["DeepSeek adapter"]["Streaming"] = new_set()

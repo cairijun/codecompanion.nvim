@@ -1,5 +1,6 @@
 local adapter_utils = require("codecompanion.adapters.utils")
 local openai = require("codecompanion.adapters.http.openai")
+local tags = require("codecompanion.interactions.shared.tags")
 
 ---Set the format of the role and content for the messages from the chat buffer
 ---@param self CodeCompanion.HTTPAdapter
@@ -80,7 +81,7 @@ return {
   opts = {
     stream = true,
     tools = true,
-    vision = false,
+    vision = true,
   },
   features = {
     text = true,
@@ -113,6 +114,8 @@ return {
         if model_opts and model_opts.opts then
           self.opts = vim.tbl_deep_extend("force", self.opts, model_opts.opts)
         end
+
+        self.opts.vision = (model_opts and model_opts.opts and model_opts.opts.has_vision) == true
 
         if self.opts and self.opts.stream then
           self.parameters.stream = true
@@ -147,7 +150,22 @@ return {
       ---@param messages table Format is: { { role = "user", content = "Your prompt here" } }
       ---@return table
       build_messages = function(self, messages)
-        return build_messages(self, messages)
+        return build_messages(self, messages, function(msg)
+          if msg._meta and msg._meta.tag == tags.IMAGE and msg.context and msg.context.mimetype then
+            if not (self.opts and self.opts.vision) then
+              return nil
+            end
+            msg.content = {
+              {
+                type = "image_url",
+                image_url = {
+                  url = string.format("data:%s;base64,%s", msg.context.mimetype, msg.content),
+                },
+              },
+            }
+          end
+          return msg
+        end)
       end,
 
       ---Provides the schemas of the tools that are available to the LLM to call
@@ -248,7 +266,7 @@ return {
         ["deepseek-flash"] = {
           formatted_name = "DeepSeek V4.1 Flash",
           meta = { context_window = 1048576 },
-          opts = { can_reason = true, can_use_tools = true },
+          opts = { can_reason = true, can_use_tools = true, has_vision = true },
         },
         ["deepseek-v4-pro"] = {
           formatted_name = "DeepSeek V4 Pro",
